@@ -504,6 +504,318 @@ jobs:
           name: AppImage-${{matrix.compiler}}
           path: artifacts
 
+  linux_static:
+    name: Linux static ${{matrix.quantum}}${{matrix.hdri_flag}}-${{matrix.libc}}-${{matrix.arch}}
+    runs-on: ${{matrix.runner}}
+    needs:
+      - changelog
+      - version
+
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+        libc: [musl, glibc]
+        quantum: [Q16, Q8]
+        hdri: [HDRI, noHDRI]
+        exclude:
+          - quantum: Q8
+            hdri: HDRI
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+          - hdri: HDRI
+            hdri_flag: -HDRI
+            hdri_configure: --enable-hdri
+          - hdri: noHDRI
+            hdri_flag: ''
+            hdri_configure: --disable-hdri
+          - libc: musl
+            container_image: alpine:3.20
+          - libc: glibc
+            container_image: ubuntu:22.04
+
+    steps:
+      - name: Clone ImageMagick
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Download ChangeLog.md
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c #v8.0.1
+        with:
+          name: ChangeLog
+
+      - name: Build static binary (musl)
+        if: matrix.libc == 'musl'
+        env:
+          VERSION: ${{needs.version.outputs.version}}
+          QUANTUM_DEPTH: ${{matrix.quantum == 'Q16' && '16' || '8'}}
+          HDRI_CONFIGURE: ${{matrix.hdri_configure}}
+          CONTAINER_IMAGE: ${{matrix.container_image}}
+        run: |
+          docker run --rm \
+            -v "${{github.workspace}}:/src" \
+            -w /src \
+            -e VERSION -e QUANTUM_DEPTH -e HDRI_CONFIGURE \
+            "$CONTAINER_IMAGE" /bin/sh -c '
+              set -e
+
+              apk add --no-cache \
+                build-base autoconf automake libtool pkgconf \
+                zlib-dev zlib-static \
+                libpng-dev libpng-static \
+                libjpeg-turbo-dev libjpeg-turbo-static \
+                tiff-dev \
+                libwebp-dev libwebp-static \
+                lcms2-dev lcms2-static \
+                freetype-dev freetype-static \
+                fontconfig-dev fontconfig-static \
+                fribidi-dev fribidi-static \
+                harfbuzz-dev harfbuzz-static \
+                libraqm-dev \
+                libxml2-dev libxml2-static \
+                openjpeg-dev \
+                liblqr-dev \
+                openexr-dev \
+                libheif-dev \
+                libraw-dev \
+                libjxl-dev \
+                bzip2-dev bzip2-static \
+                xz-dev \
+                zstd-dev zstd-static \
+                fftw-dev \
+                pango-dev \
+                librsvg-dev \
+                djvulibre-dev \
+                jbigkit-dev
+
+              export CFLAGS="-Os -fPIC"
+              export CXXFLAGS="-Os -fPIC"
+              export LDFLAGS="-static"
+              export PKG_CONFIG="pkg-config --static"
+
+              ./configure \
+                --enable-static \
+                --disable-shared \
+                --disable-openmp \
+                $HDRI_CONFIGURE \
+                --with-quantum-depth=$QUANTUM_DEPTH \
+                --without-modules \
+                --without-magick-plus-plus \
+                --without-perl \
+                --without-x \
+                --without-dps \
+                --without-fpx \
+                --without-wmf \
+                --prefix=/usr/local
+
+              make -j$(nproc)
+
+              file utilities/magick
+
+              mkdir -p /src/portable
+              cp utilities/magick /src/portable/
+              strip /src/portable/magick
+              cp config/*.xml /src/portable/ 2>/dev/null || true
+              cp config/*.icm /src/portable/ 2>/dev/null || true
+              find /src -maxdepth 1 -name "*.icc" -exec cp {} /src/portable/ \; 2>/dev/null || true
+              cp LICENSE /src/portable/LICENSE.txt
+              cp Artifacts/ChangeLog.md /src/portable/ 2>/dev/null || cp ChangeLog.md /src/portable/ 2>/dev/null || true
+            '
+
+      - name: Build static binary (glibc)
+        if: matrix.libc == 'glibc'
+        env:
+          VERSION: ${{needs.version.outputs.version}}
+          QUANTUM_DEPTH: ${{matrix.quantum == 'Q16' && '16' || '8'}}
+          HDRI_CONFIGURE: ${{matrix.hdri_configure}}
+          CONTAINER_IMAGE: ${{matrix.container_image}}
+        run: |
+          docker run --rm \
+            -v "${{github.workspace}}:/src" \
+            -w /src \
+            -e VERSION -e QUANTUM_DEPTH -e HDRI_CONFIGURE \
+            "$CONTAINER_IMAGE" /bin/bash -c '
+              set -e
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update -y
+              apt-get install -y \
+                build-essential autoconf automake libtool pkg-config \
+                libbz2-dev libdjvulibre-dev libfontconfig-dev \
+                libfreetype6-dev libfribidi-dev libharfbuzz-dev \
+                libheif-dev liblcms2-dev libopenexr-dev \
+                libopenjp2-7-dev libturbojpeg0-dev liblqr-1-0-dev \
+                libraqm-dev libtiff-dev libwebp-dev libxml2-dev \
+                liblzma-dev libpng-dev libjpeg-dev libfftw3-dev \
+                libpango1.0-dev librsvg2-dev libjbig-dev \
+                libraw-dev libzstd-dev zlib1g-dev
+
+              export CFLAGS="-Os -fPIC"
+              export CXXFLAGS="-Os -fPIC"
+              export PKG_CONFIG="pkg-config --static"
+
+              ./configure \
+                --enable-static \
+                --disable-shared \
+                --disable-openmp \
+                $HDRI_CONFIGURE \
+                --with-quantum-depth=$QUANTUM_DEPTH \
+                --without-modules \
+                --without-magick-plus-plus \
+                --without-perl \
+                --without-x \
+                --without-dps \
+                --without-fpx \
+                --without-wmf \
+                --prefix=/usr/local
+
+              make -j$(nproc)
+
+              file utilities/magick
+              ldd utilities/magick || true
+
+              mkdir -p /src/portable
+              cp utilities/magick /src/portable/
+              strip /src/portable/magick
+              cp config/*.xml /src/portable/ 2>/dev/null || true
+              cp config/*.icm /src/portable/ 2>/dev/null || true
+              find /src -maxdepth 1 -name "*.icc" -exec cp {} /src/portable/ \; 2>/dev/null || true
+              cp LICENSE /src/portable/LICENSE.txt
+              cp Artifacts/ChangeLog.md /src/portable/ 2>/dev/null || cp ChangeLog.md /src/portable/ 2>/dev/null || true
+            '
+
+      - name: Create archive
+        env:
+          VERSION: ${{needs.version.outputs.version}}
+        run: |
+          cd portable
+          tar czf "../ImageMagick-${VERSION}-portable-${{matrix.quantum}}${{matrix.hdri_flag}}-linux-${{matrix.libc}}-${{matrix.arch}}.tar.gz" .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v7.0.1
+        with:
+          name: ImageMagick-${{needs.version.outputs.version}}-portable-${{matrix.quantum}}${{matrix.hdri_flag}}-linux-${{matrix.libc}}-${{matrix.arch}}.tar.gz
+          path: ImageMagick-${{needs.version.outputs.version}}-portable-${{matrix.quantum}}${{matrix.hdri_flag}}-linux-${{matrix.libc}}-${{matrix.arch}}.tar.gz
+          archive: false
+
+  macos_static:
+    name: macOS static ${{matrix.quantum}}${{matrix.hdri_flag}}-${{matrix.arch}}
+    runs-on: ${{matrix.runner}}
+    needs:
+      - changelog
+      - version
+
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, arm64]
+        quantum: [Q16, Q8]
+        hdri: [HDRI, noHDRI]
+        exclude:
+          - quantum: Q8
+            hdri: HDRI
+        include:
+          - arch: x86_64
+            runner: macos-13
+            homebrew_prefix: /usr/local
+          - arch: arm64
+            runner: macos-14
+            homebrew_prefix: /opt/homebrew
+          - hdri: HDRI
+            hdri_flag: -HDRI
+            hdri_configure: --enable-hdri
+          - hdri: noHDRI
+            hdri_flag: ''
+            hdri_configure: --disable-hdri
+
+    steps:
+      - name: Clone ImageMagick
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Download ChangeLog.md
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c #v8.0.1
+        with:
+          name: ChangeLog
+
+      - name: Install dependencies
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+        run: |
+          brew install autoconf automake libtool pkg-config \
+            jpeg-turbo libpng libtiff webp \
+            little-cms2 freetype fontconfig fribidi harfbuzz \
+            libraqm libxml2 openjpeg liblqr openexr \
+            libheif libraw libjxl \
+            bzip2 xz zstd fftw pango librsvg djvulibre jbigkit
+
+      - name: Build static binary
+        env:
+          VERSION: ${{needs.version.outputs.version}}
+          HOMEBREW_PREFIX: ${{matrix.homebrew_prefix}}
+          QUANTUM_DEPTH: ${{matrix.quantum == 'Q16' && '16' || '8'}}
+          HDRI_CONFIGURE: ${{matrix.hdri_configure}}
+        run: |
+          set -e
+
+          export PKG_CONFIG_PATH="${HOMEBREW_PREFIX}/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/jpeg-turbo/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/libxml2/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/bzip2/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/zlib/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/zstd/lib/pkgconfig"
+          export CFLAGS="-Os"
+          export CXXFLAGS="-Os"
+          export LDFLAGS="-L${HOMEBREW_PREFIX}/lib"
+
+          ./configure \
+            --enable-static \
+            --disable-shared \
+            --disable-openmp \
+            $HDRI_CONFIGURE \
+            --with-quantum-depth=$QUANTUM_DEPTH \
+            --without-modules \
+            --without-magick-plus-plus \
+            --without-perl \
+            --without-x \
+            --without-dps \
+            --without-fpx \
+            --without-wmf \
+            --prefix=/usr/local
+
+          make -j$(sysctl -n hw.ncpu)
+
+      - name: Package
+        env:
+          VERSION: ${{needs.version.outputs.version}}
+        run: |
+          set -e
+          mkdir -p portable
+          cp utilities/magick portable/
+          strip portable/magick
+          cp config/*.xml portable/ 2>/dev/null || true
+          cp config/*.icm portable/ 2>/dev/null || true
+          find . -maxdepth 1 -name "*.icc" -exec cp {} portable/ \; 2>/dev/null || true
+          cp LICENSE portable/LICENSE.txt
+          cp Artifacts/ChangeLog.md portable/ 2>/dev/null || cp ChangeLog.md portable/ 2>/dev/null || true
+
+          otool -L portable/magick
+
+          cd portable
+          tar czf "../ImageMagick-${VERSION}-portable-${{matrix.quantum}}${{matrix.hdri_flag}}-macos-${{matrix.arch}}.tar.gz" .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v7.0.1
+        with:
+          name: ImageMagick-${{needs.version.outputs.version}}-portable-${{matrix.quantum}}${{matrix.hdri_flag}}-macos-${{matrix.arch}}.tar.gz
+          path: ImageMagick-${{needs.version.outputs.version}}-portable-${{matrix.quantum}}${{matrix.hdri_flag}}-macos-${{matrix.arch}}.tar.gz
+          archive: false
+
   source:
     name: Create source archive
     runs-on: ubuntu-24.04
@@ -579,6 +891,8 @@ jobs:
       - version
       - source
       - linux_app_image
+      - linux_static
+      - macos_static
       - windows_installer
       - windows_portable
       - windows_source
@@ -610,6 +924,7 @@ jobs:
             ${{github.workspace}}/artifacts/*.exe
             ${{github.workspace}}/artifacts/*.msixbundle
             ${{github.workspace}}/artifacts/*.AppImage
+            ${{github.workspace}}/artifacts/*.tar.gz
 
       - name: Save provenance as an artifact
         env:
@@ -628,6 +943,7 @@ jobs:
             ${{github.workspace}}/artifacts/*.exe \
             ${{github.workspace}}/artifacts/*.msixbundle \
             ${{github.workspace}}/artifacts/*.AppImage \
+            ${{github.workspace}}/artifacts/*.tar.gz \
             ${{github.workspace}}/artifacts/*.intoto.jsonl
 
   prepare_msix:
