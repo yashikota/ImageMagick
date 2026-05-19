@@ -617,9 +617,12 @@ jobs:
                 --without-wmf \
                 --prefix=/usr/local
 
-              # Get all static libs and link with --start/end-group to resolve circular deps
+              # Extract LIBS, fix placeholder, and rebuild with --start/end-group
+              # to resolve circular static library dependencies
               ALL_LIBS=$(grep "^LIBS = " Makefile | sed "s/^LIBS = //" | sed "s/@LIBS_PRIVATE@//g")
-              make -j$(nproc) LIBS="-Wl,--start-group $ALL_LIBS -Wl,--end-group"
+              make -j$(nproc) \
+                LDFLAGS="-static -Wl,--start-group" \
+                LIBS="$ALL_LIBS -Wl,--end-group"
 
               file utilities/magick
 
@@ -679,9 +682,11 @@ jobs:
                 --without-wmf \
                 --prefix=/usr/local
 
-              # Get all static libs and link with --start/end-group to resolve circular deps
+              # Extract LIBS, fix placeholder, and rebuild with --start/end-group
               ALL_LIBS=$(grep "^LIBS = " Makefile | sed "s/^LIBS = //" | sed "s/@LIBS_PRIVATE@//g")
-              make -j$(nproc) LIBS="-Wl,--start-group $ALL_LIBS -Wl,--end-group"
+              make -j$(nproc) \
+                LDFLAGS="-Wl,--start-group" \
+                LIBS="$ALL_LIBS -Wl,--end-group"
 
               file utilities/magick
               ldd utilities/magick || true
