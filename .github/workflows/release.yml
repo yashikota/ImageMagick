@@ -612,7 +612,6 @@ jobs:
                 --without-dps \
                 --without-fpx \
                 --without-wmf \
-                --without-raw \
                 --prefix=/usr/local
 
               # Fix broken pkg-config output and link order issues
