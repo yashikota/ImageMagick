@@ -785,9 +785,6 @@ jobs:
           export CXXFLAGS="-Os -Xpreprocessor -fopenmp -I${HOMEBREW_PREFIX}/opt/libomp/include"
           export LDFLAGS="-L${HOMEBREW_PREFIX}/lib -L${HOMEBREW_PREFIX}/opt/libomp/lib -lomp"
 
-          # Hide .dylib files so linker only finds .a (static) libraries
-          find ${HOMEBREW_PREFIX}/lib ${HOMEBREW_PREFIX}/opt/*/lib -name '*.dylib' -exec mv {} {}.hidden \; 2>/dev/null || true
-
           ./configure \
             --enable-static \
             --disable-shared \
@@ -817,6 +814,52 @@ jobs:
           mkdir -p portable
           cp utilities/magick portable/
           strip portable/magick
+          mkdir -p portable/lib
+
+          collect_dylibs() {
+            local target="$1"
+            otool -L "$target" | awk 'NR > 1 {print $1}' | while read -r dylib; do
+              case "$dylib" in
+                ${HOMEBREW_PREFIX}/*.dylib)
+                  local copied="portable/lib/$(basename "$dylib")"
+                  if [ ! -f "$copied" ]; then
+                    cp "$dylib" "$copied"
+                    chmod u+w "$copied"
+                    install_name_tool -id "@loader_path/lib/$(basename "$dylib")" "$copied"
+                  fi
+                  ;;
+              esac
+            done
+          }
+
+          for i in $(seq 1 8); do
+            before=$(find portable/lib -type f -name "*.dylib" | wc -l | tr -d " ")
+            collect_dylibs portable/magick
+            find portable/lib -type f -name "*.dylib" -print | while read -r dylib; do
+              collect_dylibs "$dylib"
+            done
+            after=$(find portable/lib -type f -name "*.dylib" | wc -l | tr -d " ")
+            [ "$before" = "$after" ] && break
+          done
+
+          otool -L portable/magick | awk 'NR > 1 {print $1}' | while read -r dylib; do
+            case "$dylib" in
+              ${HOMEBREW_PREFIX}/*.dylib)
+                install_name_tool -change "$dylib" "@loader_path/lib/$(basename "$dylib")" portable/magick
+                ;;
+            esac
+          done
+
+          find portable/lib -type f -name "*.dylib" -print | while read -r binary; do
+            otool -L "$binary" | awk 'NR > 1 {print $1}' | while read -r dylib; do
+              case "$dylib" in
+                ${HOMEBREW_PREFIX}/*.dylib)
+                  install_name_tool -change "$dylib" "@loader_path/lib/$(basename "$dylib")" "$binary"
+                  ;;
+              esac
+            done
+          done
+
           cp config/*.xml portable/ 2>/dev/null || true
           cp config/*.icm portable/ 2>/dev/null || true
           find . -maxdepth 1 -name "*.icc" -exec cp {} portable/ \; 2>/dev/null || true
@@ -824,6 +867,14 @@ jobs:
           cp Artifacts/ChangeLog.md portable/ 2>/dev/null || cp ChangeLog.md portable/ 2>/dev/null || true
 
           otool -L portable/magick
+          if otool -L portable/magick | grep -E "${HOMEBREW_PREFIX}/.*\\.dylib"; then
+            echo "Unbundled Homebrew dylib dependency remains"
+            exit 1
+          fi
+          MAGICK_CONFIGURE_PATH=portable portable/magick -version
+          for delegate in bzlib djvu fontconfig freetype heic jng jp2 jpeg lcms lqr lzma openexr pango png raw rsvg tiff webp xml zlib zstd; do
+            MAGICK_CONFIGURE_PATH=portable portable/magick -version | grep -E "Delegates.*${delegate}" || true
+          done
 
           cd portable
           tar czf "../ImageMagick-${VERSION}-portable-${{matrix.quantum}}${{matrix.hdri_flag}}-macos-${{matrix.arch}}.tar.gz" .
