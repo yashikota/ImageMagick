@@ -779,6 +779,9 @@ jobs:
           export CXXFLAGS="-Os -Xpreprocessor -fopenmp -I${HOMEBREW_PREFIX}/opt/libomp/include"
           export LDFLAGS="-L${HOMEBREW_PREFIX}/lib -L${HOMEBREW_PREFIX}/opt/libomp/lib -lomp"
 
+          # Hide .dylib files so linker only finds .a (static) libraries
+          find ${HOMEBREW_PREFIX}/lib ${HOMEBREW_PREFIX}/opt/*/lib -name '*.dylib' -exec mv {} {}.hidden \; 2>/dev/null || true
+
           ./configure \
             --enable-static \
             --disable-shared \
