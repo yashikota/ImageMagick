@@ -424,6 +424,7 @@ jobs:
           path: Configure\Installer\Msix\Artifacts\ImageMagick.${{matrix.quantum}}${{matrix.hdri_flag}}.msixbundle
 
   linux_app_image:
+    if: false
     name: Linux AppImage ${{matrix.compiler}}
     container:
       image: ubuntu:22.04
@@ -830,6 +831,7 @@ jobs:
           archive: false
 
   source:
+    if: false
     name: Create source archive
     runs-on: ubuntu-24.04
     needs:
@@ -902,8 +904,6 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - version
-      - source
-      - linux_app_image
       - linux_static
       - macos_static
 
