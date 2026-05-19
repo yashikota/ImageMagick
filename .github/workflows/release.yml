@@ -578,10 +578,8 @@ jobs:
                 fontconfig-dev fontconfig-static \
                 fribidi-dev fribidi-static \
                 harfbuzz-dev harfbuzz-static \
-                libraqm-dev \
                 libxml2-dev libxml2-static \
                 openjpeg-dev \
-                liblqr-dev \
                 openexr-dev \
                 libheif-dev \
                 libraw-dev \
@@ -592,8 +590,7 @@ jobs:
                 fftw-dev \
                 pango-dev \
                 librsvg-dev \
-                djvulibre-dev \
-                jbigkit-dev
+                djvulibre-dev
 
               export CFLAGS="-Os -fPIC"
               export CXXFLAGS="-Os -fPIC"
@@ -654,7 +651,7 @@ jobs:
                 libraqm-dev libtiff-dev libwebp-dev libxml2-dev \
                 liblzma-dev libpng-dev libjpeg-dev libfftw3-dev \
                 libpango1.0-dev librsvg2-dev libjbig-dev \
-                libraw-dev libzstd-dev zlib1g-dev
+                libraw-dev libzstd-dev zlib1g-dev libnuma-dev
 
               export CFLAGS="-Os -fPIC"
               export CXXFLAGS="-Os -fPIC"
@@ -756,7 +753,7 @@ jobs:
             jpeg-turbo libpng libtiff webp \
             little-cms2 freetype fontconfig fribidi harfbuzz \
             libraqm libxml2 openjpeg liblqr openexr \
-            libheif libraw libjxl \
+            libheif libraw jpeg-xl \
             bzip2 xz zstd fftw pango librsvg djvulibre jbigkit
 
       - name: Build static binary
