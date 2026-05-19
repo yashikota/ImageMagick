@@ -595,7 +595,8 @@ jobs:
 
               export CFLAGS="-Os -fPIC"
               export CXXFLAGS="-Os -fPIC"
-              export LDFLAGS="-static"
+              export LDFLAGS="-static -Wl,--start-group"
+              export LIBS="-Wl,--end-group"
               export PKG_CONFIG="pkg-config --static"
 
               ./configure \
@@ -611,7 +612,12 @@ jobs:
                 --without-dps \
                 --without-fpx \
                 --without-wmf \
+                --without-raw \
                 --prefix=/usr/local
+
+              # Fix broken pkg-config output and link order issues
+              sed -i "s/@LIBS_PRIVATE@//g" Makefile
+              sed -i "s/-fopenmp//g" Makefile
 
               make -j$(nproc)
 
@@ -785,6 +791,10 @@ jobs:
             --without-fpx \
             --without-wmf \
             --prefix=/usr/local
+
+          # Remove -fopenmp flags from pkg-config output (Apple Clang doesn't support it)
+          sed -i '' 's/-Xpreprocessor -fopenmp//g' Makefile
+          sed -i '' 's/-fopenmp//g' Makefile
 
           make -j$(sysctl -n hw.ncpu)
 
