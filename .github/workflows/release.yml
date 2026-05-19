@@ -617,11 +617,9 @@ jobs:
                 --without-wmf \
                 --prefix=/usr/local
 
-              # Fix broken pkg-config placeholder and wrap libs in --start/end-group
-              sed -i "s/@LIBS_PRIVATE@//g" Makefile
-              sed -i "s/^LIBS = \(.*\)/LIBS = -Wl,--start-group \1 -Wl,--end-group/" Makefile
-
-              make -j$(nproc)
+              # Get all static libs and link with --start/end-group to resolve circular deps
+              ALL_LIBS=$(grep "^LIBS = " Makefile | sed "s/^LIBS = //" | sed "s/@LIBS_PRIVATE@//g")
+              make -j$(nproc) LIBS="-Wl,--start-group $ALL_LIBS -Wl,--end-group"
 
               file utilities/magick
 
@@ -681,11 +679,9 @@ jobs:
                 --without-wmf \
                 --prefix=/usr/local
 
-              # Fix broken pkg-config placeholder and wrap libs in --start/end-group
-              sed -i "s/@LIBS_PRIVATE@//g" Makefile
-              sed -i "s/^LIBS = \(.*\)/LIBS = -Wl,--start-group \1 -Wl,--end-group/" Makefile
-
-              make -j$(nproc)
+              # Get all static libs and link with --start/end-group to resolve circular deps
+              ALL_LIBS=$(grep "^LIBS = " Makefile | sed "s/^LIBS = //" | sed "s/@LIBS_PRIVATE@//g")
+              make -j$(nproc) LIBS="-Wl,--start-group $ALL_LIBS -Wl,--end-group"
 
               file utilities/magick
               ldd utilities/magick || true
