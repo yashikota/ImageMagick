@@ -602,7 +602,7 @@ jobs:
               ./configure \
                 --enable-static \
                 --disable-shared \
-                --disable-openmp \
+                --enable-openmp \
                 $HDRI_CONFIGURE \
                 --with-quantum-depth=$QUANTUM_DEPTH \
                 --without-modules \
@@ -614,9 +614,8 @@ jobs:
                 --without-wmf \
                 --prefix=/usr/local
 
-              # Fix broken pkg-config output and link order issues
+              # Fix broken pkg-config placeholder
               sed -i "s/@LIBS_PRIVATE@//g" Makefile
-              sed -i "s/-fopenmp//g" Makefile
 
               make -j$(nproc)
 
@@ -661,12 +660,14 @@ jobs:
 
               export CFLAGS="-Os -fPIC"
               export CXXFLAGS="-Os -fPIC"
+              export LDFLAGS="-Wl,--start-group"
+              export LIBS="-Wl,--end-group"
               export PKG_CONFIG="pkg-config --static"
 
               ./configure \
                 --enable-static \
                 --disable-shared \
-                --disable-openmp \
+                --enable-openmp \
                 $HDRI_CONFIGURE \
                 --with-quantum-depth=$QUANTUM_DEPTH \
                 --without-modules \
@@ -677,6 +678,9 @@ jobs:
                 --without-fpx \
                 --without-wmf \
                 --prefix=/usr/local
+
+              # Fix broken pkg-config placeholder
+              sed -i "s/@LIBS_PRIVATE@//g" Makefile
 
               make -j$(nproc)
 
@@ -771,15 +775,15 @@ jobs:
         run: |
           set -e
 
-          export PKG_CONFIG_PATH="${HOMEBREW_PREFIX}/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/jpeg-turbo/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/libxml2/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/bzip2/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/zlib/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/zstd/lib/pkgconfig"
-          export CFLAGS="-Os -I${HOMEBREW_PREFIX}/opt/libomp/include"
-          export CXXFLAGS="-Os -I${HOMEBREW_PREFIX}/opt/libomp/include"
-          export LDFLAGS="-L${HOMEBREW_PREFIX}/lib -L${HOMEBREW_PREFIX}/opt/libomp/lib"
+          export PKG_CONFIG_PATH="${HOMEBREW_PREFIX}/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/jpeg-turbo/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/libxml2/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/bzip2/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/zlib/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/zstd/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/libomp/lib/pkgconfig"
+          export CFLAGS="-Os -Xpreprocessor -fopenmp -I${HOMEBREW_PREFIX}/opt/libomp/include"
+          export CXXFLAGS="-Os -Xpreprocessor -fopenmp -I${HOMEBREW_PREFIX}/opt/libomp/include"
+          export LDFLAGS="-L${HOMEBREW_PREFIX}/lib -L${HOMEBREW_PREFIX}/opt/libomp/lib -lomp"
 
           ./configure \
             --enable-static \
             --disable-shared \
-            --disable-openmp \
+            --enable-openmp \
             $HDRI_CONFIGURE \
             --with-quantum-depth=$QUANTUM_DEPTH \
             --without-modules \
@@ -790,10 +794,6 @@ jobs:
             --without-fpx \
             --without-wmf \
             --prefix=/usr/local
-
-          # Remove -fopenmp flags from pkg-config output (Apple Clang doesn't support it)
-          sed -i '' 's/-Xpreprocessor -fopenmp//g' Makefile
-          sed -i '' 's/-fopenmp//g' Makefile
 
           make -j$(sysctl -n hw.ncpu)
 
