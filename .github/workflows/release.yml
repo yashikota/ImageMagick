@@ -86,6 +86,7 @@ jobs:
           path: Artifacts
 
   windows_installer:
+    if: false
     name: Windows ${{matrix.quantum}}${{matrix.hdri_flag}}-${{matrix.architecture}} (${{matrix.buildType}})
     runs-on: windows-2022
     needs:
@@ -211,6 +212,7 @@ jobs:
           path: Configure\Installer\Inno\Artifacts
 
   windows_source:
+    if: false
     name: Create Windows source archive
     runs-on: windows-2022
     needs:
@@ -253,6 +255,7 @@ jobs:
           path: ImageMagick-${{needs.version.outputs.version}}-Windows.7z
 
   windows_portable:
+    if: false
     name: Windows portable ${{matrix.quantum}}${{matrix.hdri_flag}}-${{matrix.architecture}}
     runs-on: windows-2022
     needs:
@@ -342,7 +345,7 @@ jobs:
 
   windows_msix:
     name: Create Msix ${{matrix.quantum}}${{matrix.hdri_flag}}
-    if: github.event_name != 'pull_request'
+    if: false
     runs-on: windows-2025
     environment: release
     needs:
@@ -903,10 +906,6 @@ jobs:
       - linux_app_image
       - linux_static
       - macos_static
-      - windows_installer
-      - windows_portable
-      - windows_source
-      - windows_msix
 
     permissions:
       contents: write
@@ -957,6 +956,7 @@ jobs:
             ${{github.workspace}}/artifacts/*.intoto.jsonl
 
   prepare_msix:
+    if: false
     name: Prepare Msix
     runs-on: ubuntu-24.04
 
@@ -967,6 +967,7 @@ jobs:
         run: gh repo sync dlemstra/winget-pkgs --source microsoft/winget-pkgs
 
   release_msix:
+    if: false
     name: Publish Msix ${{matrix.quantum}}${{matrix.hdri_flag}}
     needs:
       - version
