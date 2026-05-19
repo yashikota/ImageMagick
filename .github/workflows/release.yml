@@ -584,6 +584,7 @@ jobs:
                 libheif-dev \
                 libraw-dev \
                 libjxl-dev \
+                numactl-dev \
                 bzip2-dev bzip2-static \
                 xz-dev \
                 zstd-dev zstd-static \
@@ -753,7 +754,7 @@ jobs:
             jpeg-turbo libpng libtiff webp \
             little-cms2 freetype fontconfig fribidi harfbuzz \
             libraqm libxml2 openjpeg liblqr openexr \
-            libheif libraw jpeg-xl \
+            libheif libraw jpeg-xl libomp \
             bzip2 xz zstd fftw pango librsvg djvulibre jbigkit
 
       - name: Build static binary
@@ -766,9 +767,9 @@ jobs:
           set -e
 
           export PKG_CONFIG_PATH="${HOMEBREW_PREFIX}/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/jpeg-turbo/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/libxml2/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/bzip2/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/zlib/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/zstd/lib/pkgconfig"
-          export CFLAGS="-Os"
-          export CXXFLAGS="-Os"
-          export LDFLAGS="-L${HOMEBREW_PREFIX}/lib"
+          export CFLAGS="-Os -I${HOMEBREW_PREFIX}/opt/libomp/include"
+          export CXXFLAGS="-Os -I${HOMEBREW_PREFIX}/opt/libomp/include"
+          export LDFLAGS="-L${HOMEBREW_PREFIX}/lib -L${HOMEBREW_PREFIX}/opt/libomp/lib"
 
           ./configure \
             --enable-static \
