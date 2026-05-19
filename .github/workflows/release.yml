@@ -595,8 +595,7 @@ jobs:
 
               export CFLAGS="-Os -fPIC"
               export CXXFLAGS="-Os -fPIC"
-              export LDFLAGS="-static -Wl,--start-group"
-              export LIBS="-Wl,--end-group"
+              export LDFLAGS="-static"
               export PKG_CONFIG="pkg-config --static"
 
               ./configure \
@@ -614,8 +613,9 @@ jobs:
                 --without-wmf \
                 --prefix=/usr/local
 
-              # Fix broken pkg-config placeholder
+              # Fix broken pkg-config placeholder and wrap libs in --start/end-group
               sed -i "s/@LIBS_PRIVATE@//g" Makefile
+              sed -i "s/^LIBS = \(.*\)/LIBS = -Wl,--start-group \1 -Wl,--end-group/" Makefile
 
               make -j$(nproc)
 
@@ -660,8 +660,6 @@ jobs:
 
               export CFLAGS="-Os -fPIC"
               export CXXFLAGS="-Os -fPIC"
-              export LDFLAGS="-Wl,--start-group"
-              export LIBS="-Wl,--end-group"
               export PKG_CONFIG="pkg-config --static"
 
               ./configure \
@@ -679,8 +677,9 @@ jobs:
                 --without-wmf \
                 --prefix=/usr/local
 
-              # Fix broken pkg-config placeholder
+              # Fix broken pkg-config placeholder and wrap libs in --start/end-group
               sed -i "s/@LIBS_PRIVATE@//g" Makefile
+              sed -i "s/^LIBS = \(.*\)/LIBS = -Wl,--start-group \1 -Wl,--end-group/" Makefile
 
               make -j$(nproc)
 
@@ -794,6 +793,10 @@ jobs:
             --without-fpx \
             --without-wmf \
             --prefix=/usr/local
+
+          # Replace bare -fopenmp in LIBS with -lomp (Apple Clang uses libomp directly)
+          sed -i '' 's/-Xpreprocessor -fopenmp//g' Makefile
+          sed -i '' 's/ -fopenmp/ -lomp/g' Makefile
 
           make -j$(sysctl -n hw.ncpu)
 
