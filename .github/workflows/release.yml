@@ -620,7 +620,7 @@ jobs:
               # Extract LIBS, fix placeholder, and rebuild with --start/end-group
               # to resolve circular static library dependencies
               ALL_LIBS=$(grep "^LIBS = " Makefile | sed "s/^LIBS = //" | sed "s/@LIBS_PRIVATE@//g")
-              ALL_LIBS="$ALL_LIBS $(pkg-config --libs --static libopenjp2)"
+              ALL_LIBS="$ALL_LIBS /usr/lib/libopenjp2.a -lm"
               make -j$(nproc) \
                 LDFLAGS="-static -Wl,--start-group" \
                 LIBS="$ALL_LIBS -Wl,--end-group"
